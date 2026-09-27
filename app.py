@@ -19,9 +19,9 @@ model, classes = load_model()
 
 file = st.file_uploader("Image upload karo", type=["jpg","png","jpeg"])
 if file:
-    img = Image.open(file).resize((224,224))
+    img = Image.open(file).convert("RGB").resize((224,224))
     st.image(img)
-    arr = tf.keras.applications.mobilenet_v2.preprocess_input(np.array(img)[None,...])
+    arr = tf.keras.applications.mobilenet_v2.preprocess_input(np.array(img, dtype=np.float32)[None,...])
     pred = model.predict(arr)[0]
     idx = int(np.argmax(pred))
     st.success(f"Result: {classes[idx]} ({pred[idx]*100:.1f}%)")
