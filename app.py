@@ -5,7 +5,6 @@ from PIL import Image
 import json
 import time
 import pandas as pd
-import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Garbage Classifier", page_icon="♻️", layout="wide")
 st.title("♻️ Garbage Classifier - 94% Accuracy")
@@ -66,12 +65,10 @@ with col2:
         st.subheader("2. Prediction Result")
         img_arr = np.array(img, dtype=np.float32)[None, ...]
 
-        # --- ABLATION LOGIC - FIXED ---
         if use_preprocessing:
             img_arr = tf.keras.applications.mobilenet_v2.preprocess_input(img_arr)
             st.caption("Preprocessing: ON (MobileNetV2 preprocess: -1 to 1)")
         else:
-            # OFF = Raw 0-255, no scaling. Model was trained on -1 to 1, so it will fail.
             st.caption("Preprocessing: OFF (Ablation - Raw 0-255 values, no scaling)")
 
         start = time.time()
@@ -97,20 +94,18 @@ with col2:
         if conf < 60:
             st.warning("Low confidence - Model is confused due to Ablation.")
 
-# ============ BOTTOM TABLE + FIXED CHART ============
+# ============ BOTTOM - COMPARATIVE WITHOUT MATPLOTLIB ============
 st.divider()
 st.subheader("📊 Full Comparative Analysis")
 st.dataframe(df, use_container_width=True, hide_index=True)
 
-# Fixed Chart - Proper 0 to 100 scale, no more big blue boxes
-fig, ax = plt.subplots(figsize=(8, 3))
-colors = ["#2E86C1", "#AAB7B8", "#AAB7B8", "#AAB7B8"]
-bars = ax.bar(df["Model"], df["Accuracy (%)"], color=colors)
-ax.set_ylim(0, 100)
-ax.set_ylabel("Accuracy (%)")
-ax.set_title("Accuracy Comparison - MobileNetV2 is Highest")
-for bar in bars:
-    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1, f"{bar.get_height():.1f}%", ha="center", fontsize=9)
-st.pyplot(fig)
+st.subheader("Accuracy Comparison")
+# Chart without matplotlib - using only Streamlit, so it will never crash
+for _, row in df.iterrows():
+    c1, c2 = st.columns([2, 5])
+    with c1:
+        st.write(f"**{row['Model']}** - {row['Accuracy (%)']:.1f}%")
+    with c2:
+        st.progress(float(row['Accuracy (%)'] / 100))
 
 st.caption("MobileNetV2 is the smallest model (14MB) yet achieves the highest accuracy (94%) - This is our Novelty.")
