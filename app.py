@@ -5,6 +5,7 @@ from PIL import Image
 import json
 import time
 import pandas as pd
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Garbage Classifier", page_icon="♻️", layout="wide")
 st.title("♻️ Garbage Classifier - 94% Accuracy")
@@ -29,10 +30,9 @@ def load_model():
 
 model, classes = load_model()
 
-# ============ SIDEBAR - ALL IN ENGLISH ============
+# ============ SIDEBAR ============
 st.sidebar.header("Phase 3 Controls")
 
-# --- NOVELTY ---
 st.sidebar.subheader("✨ Novelty - Why Our Model is Different")
 st.sidebar.info(
     "1. Lightweight MobileNetV2 (14MB) - Runs on mobile devices\n"
@@ -40,7 +40,6 @@ st.sidebar.info(
     "3. Optimized Preprocessing Pipeline"
 )
 
-# --- COMPARATIVE ---
 st.sidebar.subheader("📊 Comparative Analysis")
 selected_model = st.sidebar.selectbox(
     "Select Model:",
@@ -48,10 +47,8 @@ selected_model = st.sidebar.selectbox(
 )
 st.sidebar.dataframe(df, hide_index=True)
 
-# --- ABLATION ---
 st.sidebar.subheader("🧪 Ablation Study")
 use_preprocessing = st.sidebar.toggle("Preprocessing ON / OFF", value=True)
-use_normalization = st.sidebar.toggle("Normalization ON / OFF", value=True)
 show_top3 = st.sidebar.toggle("Show Top-3 Predictions", value=True)
 
 # ============ MAIN AREA ============
@@ -69,16 +66,13 @@ with col2:
         st.subheader("2. Prediction Result")
         img_arr = np.array(img, dtype=np.float32)[None, ...]
 
+        # --- ABLATION LOGIC - FIXED ---
         if use_preprocessing:
             img_arr = tf.keras.applications.mobilenet_v2.preprocess_input(img_arr)
-            st.caption("Preprocessing: ON (MobileNetV2 preprocess)")
+            st.caption("Preprocessing: ON (MobileNetV2 preprocess: -1 to 1)")
         else:
-            img_arr = img_arr / 255.0
-            st.caption("Preprocessing: OFF (Ablation - Only /255)")
-
-        if not use_normalization:
-            img_arr = img_arr * 255.0
-            st.caption("Normalization: OFF (Ablation)")
+            # OFF = Raw 0-255, no scaling. Model was trained on -1 to 1, so it will fail.
+            st.caption("Preprocessing: OFF (Ablation - Raw 0-255 values, no scaling)")
 
         start = time.time()
         pred = model.predict(img_arr, verbose=0)[0]
@@ -99,11 +93,24 @@ with col2:
                 st.progress(float(pred[i]))
 
         if not use_preprocessing:
-            st.warning("Ablation Result: Confidence dropped after turning OFF preprocessing. This proves preprocessing was important.")
+            st.warning("Ablation Result: Preprocessing OFF - Confidence dropped. This proves preprocessing was important.")
+        if conf < 60:
+            st.warning("Low confidence - Model is confused due to Ablation.")
 
-# ============ BOTTOM TABLE ============
+# ============ BOTTOM TABLE + FIXED CHART ============
 st.divider()
 st.subheader("📊 Full Comparative Analysis")
 st.dataframe(df, use_container_width=True, hide_index=True)
-st.bar_chart(df.set_index("Model")["Accuracy (%)"])
+
+# Fixed Chart - Proper 0 to 100 scale, no more big blue boxes
+fig, ax = plt.subplots(figsize=(8, 3))
+colors = ["#2E86C1", "#AAB7B8", "#AAB7B8", "#AAB7B8"]
+bars = ax.bar(df["Model"], df["Accuracy (%)"], color=colors)
+ax.set_ylim(0, 100)
+ax.set_ylabel("Accuracy (%)")
+ax.set_title("Accuracy Comparison - MobileNetV2 is Highest")
+for bar in bars:
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1, f"{bar.get_height():.1f}%", ha="center", fontsize=9)
+st.pyplot(fig)
+
 st.caption("MobileNetV2 is the smallest model (14MB) yet achieves the highest accuracy (94%) - This is our Novelty.")
